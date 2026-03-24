@@ -1639,6 +1639,46 @@ let activeModels = { bilstm:true, arima:true, xgboost:true, ensemble:true };
 let currentHorizon = 'short';
 let currentView = 'overview';
 let charts = {};
+let cityDataJSON = {}; // Store loaded JSON forecast data
+
+// ─── LOAD JSON DATA FROM BACKEND ──────────────────────────────
+async function loadCityData(cityName) {
+  const fileName = cityName.toLowerCase().replace(/\s+/g, '_') + '_forecast.json';
+  const path = `data/${fileName}`;
+  
+  try {
+    const response = await fetch(path);
+    if (!response.ok) {
+      console.warn(`Could not load ${path}, using fallback data`);
+      return null;
+    }
+    const data = await response.json();
+    cityDataJSON[cityName] = data;
+    console.log(`✓ Loaded data for ${cityName}`);
+    return data;
+  } catch (err) {
+    console.warn(`Fallback: ${cityName} data not found (${err.message})`);
+    return null;
+  }
+}
+
+// ─── Build forecast arrays from JSON ─────────────────────────
+function getForecastFromJSON(jsonData, horizon='short') {
+  if (!jsonData || !jsonData.forecasts) return null;
+  
+  const horizonMap = { short: '12month', medium: '60month', long: '240month' };
+  const key = horizonMap[horizon] || '12month';
+  const forecast = jsonData.forecasts[key];
+  
+  return forecast ? {
+    data: forecast.ensemble || [],
+    lower95: forecast.lower_95 || [],
+    upper95: forecast.upper_95 || [],
+    lower80: forecast.lower_80 || [],
+    upper80: forecast.upper_80 || [],
+    timestamps: forecast.timestamps || []
+  } : null;
+}
 
 // ─── CLOCK ───────────────────────────────────────────────────
 function updateClock() {
@@ -1675,10 +1715,16 @@ function filterCities(query) {
 }
 
 // ─── CITY SELECT ─────────────────────────────────────────────
-function selectCity(btn) {
+async function selectCity(btn) {
   document.querySelectorAll('.loc-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   currentCity = btn.dataset.city;
+  
+  // Try to load JSON data for this city
+  if (!cityDataJSON[currentCity]) {
+    await loadCityData(currentCity);
+  }
+  
   runForecast();
 }
 
@@ -1977,23 +2023,38 @@ function buildForecastChart() {
   }
 
   // ── Historical + forecast data ───────────────────────────────
-  const hist = genTemp(currentCity, histLen);
-  const last = hist[hist.length - 1];
-  const fcst = Array.from({length: future}, (_, i) => +(
-    last
-    + widen * 0.35 * i
-    + Math.sin((i / 12) * Math.PI * 2) * 3
-    + (Math.random() - 0.5) * 0.5
-  ).toFixed(1));
-
-  // Pre-compute uncertainty bounds (stored for custom plugin)
-  const bands = { u95: [], l95: [], u80: [], l80: [] };
-  for (let i = 0; i < future; i++) {
-    const sigma = 0.9 + widen * i;
-    bands.u95.push(+(fcst[i] + 1.96 * sigma).toFixed(1));
-    bands.l95.push(+(fcst[i] - 1.96 * sigma).toFixed(1));
-    bands.u80.push(+(fcst[i] + 1.28 * sigma).toFixed(1));
-    bands.l80.push(+(fcst[i] - 1.28 * sigma).toFixed(1));
+  // Try to use JSON data first, fall back to synthetic
+  let hist, fcst, bands = { u95: [], l95: [], u80: [], l80: [] };
+  
+  const jsonFcst = getForecastFromJSON(cityDataJSON[currentCity], currentHorizon);
+  if (jsonFcst) {
+    // Use JSON data
+    const data = jsonFcst.data.slice(0, future);
+    fcst = data;
+    bands.u95 = jsonFcst.upper95.slice(0, future);
+    bands.l95 = jsonFcst.lower95.slice(0, future);
+    bands.u80 = jsonFcst.upper80.slice(0, future);
+    bands.l80 = jsonFcst.lower80.slice(0, future);
+    hist = genTemp(currentCity, histLen); // Use synthetic for history
+    console.log(`Using JSON data for ${currentCity}`);
+  } else {
+    // Fall back to synthetic data
+    hist = genTemp(currentCity, histLen);
+    const last = hist[hist.length - 1];
+    fcst = Array.from({length: future}, (_, i) => +(
+      last
+      + widen * 0.35 * i
+      + Math.sin((i / 12) * Math.PI * 2) * 3
+      + (Math.random() - 0.5) * 0.5
+    ).toFixed(1));
+    
+    for (let i = 0; i < future; i++) {
+      const sigma = 0.9 + widen * i;
+      bands.u95.push(+(fcst[i] + 1.96 * sigma).toFixed(1));
+      bands.l95.push(+(fcst[i] - 1.96 * sigma).toFixed(1));
+      bands.u80.push(+(fcst[i] + 1.28 * sigma).toFixed(1));
+      bands.l80.push(+(fcst[i] - 1.28 * sigma).toFixed(1));
+    }
   }
 
   // ── Custom canvas plugin draws bands BEFORE lines ───────────
