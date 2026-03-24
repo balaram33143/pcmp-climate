@@ -5,16 +5,38 @@
 
 ---
 
+## � **Quick Start — Interactive Dashboard**
+
+**No installation required!** Open the live dashboard in your browser:
+
+```bash
+# Simply double-click or open in browser:
+open index.html
+```
+
+[**View Live Dashboard →** ](./index.html)
+
+The dashboard includes:
+- 🗺️ 10+ Indian cities with real-time data
+- 📊 Interactive temperature, rainfall, wind, and solar charts
+- 🔥 Fire risk, heat stress, drought, and flood risk gauges
+- ☀️ Solar energy yield predictions
+- 📈 12-month, 5-year, and 10-year forecast horizons
+- 📤 Export forecasts as CSV or text reports
+
+---
+
 ## 📌 Table of Contents
 
+- [Quick Start](#-quick-start--interactive-dashboard)
 - [Overview](#overview)
 - [Key Features](#key-features)
 - [Project Structure](#project-structure)
 - [Architecture](#architecture)
 - [Supported Cities](#supported-cities)
 - [Data Sources](#data-sources)
-- [Installation](#installation)
-- [Usage](#usage)
+- [Installation & Usage](#installation--usage)
+- [Generate ML Forecasts](#generate-ml-forecasts)
 - [Model Details](#model-details)
 - [Performance Metrics](#performance-metrics)
 - [Dashboard (Web UI)](#dashboard-web-ui)
@@ -164,7 +186,7 @@ Raw Climate Data (NASA POWER / IMD / Synthetic)
 
 ---
 
-## Installation
+## Installation & Usage
 
 ### Prerequisites
 
@@ -193,9 +215,11 @@ cd pcmp-climate
 
 ---
 
-## Usage
+## Generate ML Forecasts
 
-### 1. Run the Jupyter Notebook (Full ML Pipeline)
+The dashboard works best when you generate fresh forecasts from the ML pipeline:
+
+### 1. Run the Jupyter Notebook
 
 ```bash
 jupyter notebook PCMP_Climate_Forecasting.ipynb
@@ -218,8 +242,9 @@ Execute cells section by section:
 | 11 | Forest fire risk classifier (4-class XGBoost) |
 | 12 | Solar energy forecasting (GHI, DNI, panel output efficiency) |
 | 13 | Visualizations, summary dashboard, model saving |
+| 14 | **Export forecasts to JSON** — generates `data/*.json` files for the dashboard |
 
-### Change the target city
+### 2. Change the target city
 
 In **Section 2**, update the `CITY` variable:
 
@@ -227,15 +252,13 @@ In **Section 2**, update the `CITY` variable:
 CITY = 'Hyderabad'   # any key from the CITIES dictionary
 ```
 
-### 2. Open the Web Dashboard
+### 3. Dashboard loads exported data
 
-No installation needed. Just open in a browser:
-
-```bash
-open index.html
-```
-
-or double-click `index.html` in your file manager.
+After the notebook completes:
+- JSON forecast files are generated in `data/` directory
+- Open `index.html` in your browser
+- Select a city → dashboard loads the ML forecast data automatically
+- Charts display real model predictions (not synthetic data)
 
 ---
 
